@@ -31,13 +31,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAuthData(data);
         setUser(data.user);
         const rolePath = data.user.role.toLowerCase();
-        router.push(`/dashboard/${rolePath}`);
+        router.push(`/${rolePath}`);
     };
 
     const logout = () => {
         clearAuth();
         setUser(null);
-        router.push('/auth/login');
+        router.push('/login');
     };
 
     return (
