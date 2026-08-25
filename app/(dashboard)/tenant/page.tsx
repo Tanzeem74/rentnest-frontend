@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, Clock, CheckCircle, XCircle, AlertCircle, CreditCard, Loader2 } from 'lucide-react';
+import { Home, Clock, CheckCircle, XCircle, AlertCircle, CreditCard, Loader2, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type RentalRequest = {
@@ -16,7 +16,9 @@ type RentalRequest = {
   propertyId: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'COMPLETED';
   message?: string;
+  requestedMoveInDate?: string;
   property: {
+    id: string;
     title: string;
     location: string;
     rentAmount: string;
@@ -46,6 +48,7 @@ export default function TenantDashboard() {
     pending: 0,
     approved: 0,
     active: 0,
+    completed: 0,
   });
 
   useEffect(() => {
@@ -53,7 +56,7 @@ export default function TenantDashboard() {
       try {
         setLoading(true);
         const [requestsRes, paymentsRes] = await Promise.all([
-          api.get('/rental-requests'),
+          api.get('/rentals'),
           api.get('/payments'),
         ]);
 
@@ -66,12 +69,14 @@ export default function TenantDashboard() {
         const pending = requestsData.filter((r: RentalRequest) => r.status === 'PENDING').length;
         const approved = requestsData.filter((r: RentalRequest) => r.status === 'APPROVED').length;
         const active = requestsData.filter((r: RentalRequest) => r.status === 'ACTIVE').length;
+        const completed = requestsData.filter((r: RentalRequest) => r.status === 'COMPLETED').length;
 
         setStats({
           total: requestsData.length,
           pending,
           approved,
           active,
+          completed,
         });
       } catch (err) {
         let errorMessage = 'Failed to load dashboard data';
@@ -109,9 +114,19 @@ export default function TenantDashboard() {
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'ACTIVE':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'COMPLETED':
+        return <CheckCircle className="h-4 w-4 text-gray-500" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  const handlePayNow = (requestId: string) => {
+    router.push(`/tenant/requests/${requestId}/pay`);
+  };
+
+  const handleLeaveReview = (requestId: string, propertyId: string) => {
+    router.push(`/tenant/requests/${requestId}/review?propertyId=${propertyId}`);
   };
 
   if (loading) {
@@ -137,15 +152,18 @@ export default function TenantDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Tenant Dashboard</h1>
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Tenant Dashboard</h1>
+          <p className="text-sm text-gray-500">Welcome back, {user?.name}</p>
+        </div>
         <Button onClick={() => router.push('/properties')}>
-          <Home className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 mr-2" />
           Browse Properties
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">Total Requests</CardTitle>
@@ -178,6 +196,14 @@ export default function TenantDashboard() {
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-gray-600">{stats.completed}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -194,48 +220,68 @@ export default function TenantDashboard() {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Rent</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.property.title}</TableCell>
-                    <TableCell>{request.property.location}</TableCell>
-                    <TableCell>৳{Number(request.property.rentAmount).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(request.status)}
-                        {getStatusBadge(request.status)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{new Date(request.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {request.status === 'APPROVED' && (
-                        <Button
-                          size="sm"
-                          onClick={() => router.push(`/tenant/requests/${request.id}/pay`)}
-                        >
-                          <CreditCard className="h-4 w-4 mr-1" />
-                          Pay Now
-                        </Button>
-                      )}
-                      {request.status === 'PENDING' && (
-                        <span className="text-sm text-gray-400">Waiting...</span>
-                      )}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Rent</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {requests.map((request) => (
+                    <TableRow key={request.id}>
+                      <TableCell className="font-medium">{request.property.title}</TableCell>
+                      <TableCell>{request.property.location}</TableCell>
+                      <TableCell>৳{Number(request.property.rentAmount).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(request.status)}
+                          {getStatusBadge(request.status)}
+                        </div>
+                      </TableCell>
+                      <TableCell>{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {request.status === 'APPROVED' && (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePayNow(request.id)}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Pay Now
+                            </Button>
+                          )}
+                          {request.status === 'COMPLETED' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleLeaveReview(request.id, request.propertyId)}
+                            >
+                              Leave Review
+                            </Button>
+                          )}
+                          {request.status === 'PENDING' && (
+                            <span className="text-sm text-gray-400">Waiting for approval</span>
+                          )}
+                          {request.status === 'REJECTED' && (
+                            <span className="text-sm text-red-500">Rejected</span>
+                          )}
+                          {request.status === 'ACTIVE' && (
+                            <span className="text-sm text-green-600">Active rental</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -246,38 +292,40 @@ export default function TenantDashboard() {
             <CardTitle>Payment History</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>{payment.transactionId || 'N/A'}</TableCell>
-                    <TableCell>৳{payment.amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          payment.status === 'PAID'
-                            ? 'default'
-                            : payment.status === 'PENDING'
-                            ? 'secondary'
-                            : 'destructive'
-                        }
-                      >
-                        {payment.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>{payment.transactionId || 'N/A'}</TableCell>
+                      <TableCell>৳{payment.amount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            payment.status === 'PAID'
+                              ? 'default'
+                              : payment.status === 'PENDING'
+                              ? 'secondary'
+                              : 'destructive'
+                          }
+                        >
+                          {payment.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -9,7 +9,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Bed, Bath, Square, ArrowLeft, Home, User, Mail, Phone } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, ArrowLeft, Home, User, Mail, Phone, Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Property = {
   id: string;
@@ -41,6 +43,10 @@ export default function PropertyDetailsPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [requesting, setRequesting] = useState(false);
 
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [moveInDate, setMoveInDate] = useState(tomorrow.toISOString().split('T')[0]);
+
   useEffect(() => {
     const fetchProperty = async () => {
       try {
@@ -63,19 +69,26 @@ export default function PropertyDetailsPage() {
   const handleRequestRent = async () => {
     if (!user) {
       toast.error('Please login first');
-      router.push('/auth/login');
+      router.push('/login');
       return;
     }
     if (user.role !== 'TENANT') {
       toast.error('Only tenants can request rent');
       return;
     }
+    if (!moveInDate) {
+      toast.error('Please select a move-in date');
+      return;
+    }
 
     setRequesting(true);
     try {
-      const payload = { propertyId: id };
-      await api.post('/rental-requests', payload);
-      toast.success('Rental request submitted successfully! Wait for landlord approval.');
+      const payload = {
+        propertyId: id,
+        requestedMoveInDate: moveInDate,
+      };
+      await api.post('/rentals', payload);
+      toast.success('Rental request submitted successfully!');
       setTimeout(() => {
         router.push('/tenant');
       }, 1500);
@@ -229,13 +242,28 @@ export default function PropertyDetailsPage() {
               </div>
 
               {property.status === 'AVAILABLE' && (
-                <Button
-                  onClick={handleRequestRent}
-                  disabled={requesting || user?.role === 'LANDLORD'}
-                  className="w-full"
-                >
-                  {requesting ? 'Submitting...' : 'Request to Rent'}
-                </Button>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="moveInDate" className="text-sm font-medium">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Move-in Date
+                    </Label>
+                    <Input
+                      id="moveInDate"
+                      type="date"
+                      value={moveInDate}
+                      onChange={(e) => setMoveInDate(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleRequestRent}
+                    disabled={requesting || user?.role === 'LANDLORD' || !moveInDate}
+                    className="w-full"
+                  >
+                    {requesting ? 'Submitting...' : 'Request to Rent'}
+                  </Button>
+                </div>
               )}
 
               {user?.role === 'LANDLORD' && (
