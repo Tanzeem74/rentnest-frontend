@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (data: AuthResponse) => {
-    console.log('AuthContext: Login called with:', data.user.role);
+    //console.log('AuthContext: Login called with:', data.user.role);
     setAuthData(data);
     setUser(data.user);
     const rolePath = data.user.role.toLowerCase();
