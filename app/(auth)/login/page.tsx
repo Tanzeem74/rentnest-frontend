@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api-client';
+import { UserRole } from '@/lib/types';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -22,7 +24,6 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -31,8 +32,6 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setLoading(true);
-    setError('');
-
     try {
       const payload = {
         email: data.email.toLowerCase().trim(),
@@ -40,29 +39,52 @@ export default function LoginPage() {
       };
 
       const res = await api.post('/auth/login', payload);
-
       const responseData = res.data?.data;
 
       if (responseData?.accessToken) {
-        const user = responseData.user || {};
-        const role = user.role || user.userRole || responseData.role || 'TENANT';
+        const token = responseData.accessToken;
+        const refreshToken = responseData.refreshToken;
+
+        let userRole: UserRole = 'TENANT';
+        let userEmail = data.email;
+        let userName = 'User';
+
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payloadBase64 = parts[1];
+            const decodedPayload = JSON.parse(atob(payloadBase64));
+            const roleFromToken = decodedPayload.role || decodedPayload.userRole || 'TENANT';
+            if (roleFromToken === 'TENANT' || roleFromToken === 'LANDLORD' || roleFromToken === 'ADMIN') {
+              userRole = roleFromToken;
+            }
+            userEmail = decodedPayload.email || data.email;
+            userName = decodedPayload.name || decodedPayload.userName || 'User';
+          }
+        } catch (decodeErr) {
+          console.warn('Token decode failed:', decodeErr);
+        }
 
         login({
-          accessToken: responseData.accessToken,
-          refreshToken: responseData.refreshToken,
+          accessToken: token,
+          refreshToken: refreshToken,
           user: {
-            id: user.id || '',
-            name: user.name || '',
-            email: user.email || '',
-            role: role,
+            id: '',
+            name: userName,
+            email: userEmail,
+            role: userRole,
           },
         });
       } else {
-        setError('Invalid response format from server');
+        toast.error('Invalid response format from server');
       }
-    } catch (err: unknown) {
-      const errorMsg = (err as { response?: { data?: { message?: string } }; message?: string }).response?.data?.message || (err as { message?: string }).message || 'Invalid credentials';
-      setError(errorMsg);
+    } catch (err) {
+      let errorMessage = 'Invalid credentials';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const errorResponse = err as { response: { data: { message: string } } };
+        errorMessage = errorResponse.response?.data?.message || errorMessage;
+      }
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -79,11 +101,6 @@ export default function LoginPage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-5">
-            {error && (
-              <div className="p-2 sm:p-3 text-sm bg-red-50 border border-red-200 text-red-600 rounded-md">
-                {error}
-              </div>
-            )}
             <FormField
               control={form.control}
               name="email"
@@ -118,8 +135,8 @@ export default function LoginPage() {
       </CardContent>
       <CardFooter className="flex justify-center pt-2 pb-6 sm:pb-8">
         <p className="text-sm text-gray-500">
-          Don&rsquo;t have an account?{' '}
-          <Link href="/auth/register" className="text-blue-600 hover:underline font-medium">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="text-blue-600 hover:underline font-medium">
             Create one
           </Link>
         </p>

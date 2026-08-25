@@ -27,6 +27,11 @@ export function Navbar() {
       .slice(0, 2);
   };
 
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
   return (
     <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,7 +71,7 @@ export function Navbar() {
                     Profile
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-600 cursor-pointer">
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -74,12 +79,12 @@ export function Navbar() {
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2">
-                <Link href="/auth/login">
+                <Link href="/login">
                   <Button variant="ghost" size="sm">
                     Login
                   </Button>
                 </Link>
-                <Link href="/auth/register">
+                <Link href="/register">
                   <Button size="sm">Sign Up</Button>
                 </Link>
               </div>

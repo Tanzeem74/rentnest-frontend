@@ -6,51 +6,54 @@ import { User, AuthResponse } from '@/lib/types';
 import { getUser, setAuthData, clearAuth } from '@/lib/auth-helper';
 
 interface AuthContextType {
-    user: User | null;
-    isLoading: boolean;
-    login: (data: AuthResponse) => void;
-    logout: () => void;
+  user: User | null;
+  isLoading: boolean;
+  login: (data: AuthResponse) => void;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-    useEffect(() => {
-        const currentUser = getUser();
-        startTransition(() => {
-            setUser(currentUser);
-            setIsLoading(false);
-        });
-    }, []);
+  useEffect(() => {
+    const currentUser = getUser();
+    console.log('AuthContext: User from cookie:', currentUser);
+    startTransition(() => {
+      setUser(currentUser);
+      setIsLoading(false);
+    });
+  }, []);
 
-    const login = (data: AuthResponse) => {
-        setAuthData(data);
-        setUser(data.user);
-        const rolePath = data.user.role.toLowerCase();
-        router.push(`/${rolePath}`);
-    };
+  const login = (data: AuthResponse) => {
+    console.log('AuthContext: Login called with:', data.user.role);
+    setAuthData(data);
+    setUser(data.user);
+    const rolePath = data.user.role.toLowerCase();
+    router.push(`/${rolePath}`);
+  };
 
-    const logout = () => {
-        clearAuth();
-        setUser(null);
-        router.push('/login');
-    };
+  const logout = () => {
+    console.log('AuthContext: Logout called');
+    clearAuth();
+    setUser(null);
+    router.push('/login');
+  };
 
-    return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
-            {children}
-        </AuthContext.Provider>
-    );
+  return (
+    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
