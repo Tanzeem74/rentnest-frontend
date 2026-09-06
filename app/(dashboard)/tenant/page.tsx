@@ -1,17 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import api from '@/lib/api-client';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import api from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -19,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Home,
   Clock,
@@ -29,18 +24,14 @@ import {
   Loader2,
   Plus,
   CreditCard,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
+  Star,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 type RentalRequest = {
   id: string;
   propertyId: string;
-  status:
-    | 'PENDING'
-    | 'APPROVED'
-    | 'REJECTED'
-    | 'ACTIVE'
-    | 'COMPLETED';
+  status: "PENDING" | "APPROVED" | "REJECTED" | "ACTIVE" | "COMPLETED";
   message?: string;
   requestedMoveInDate?: string;
   property: {
@@ -64,12 +55,21 @@ type Payment = {
   createdAt: string;
 };
 
+type Review = {
+  id: string;
+  propertyId: string;
+  rating: number;
+  comment?: string;
+};
+
 export default function TenantDashboard() {
   const { user } = useAuth();
   const router = useRouter();
 
   const [requests, setRequests] = useState<RentalRequest[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -84,7 +84,7 @@ export default function TenantDashboard() {
 
   useEffect(() => {
     api
-      .get('/rentals')
+      .get("/rentals")
       .then((response) => {
         const responseData = response.data;
 
@@ -101,19 +101,19 @@ export default function TenantDashboard() {
         setRequests(requestsData);
 
         const pending = requestsData.filter(
-          (request) => request.status === 'PENDING'
+          (request) => request.status === "PENDING",
         ).length;
 
         const approved = requestsData.filter(
-          (request) => request.status === 'APPROVED'
+          (request) => request.status === "APPROVED",
         ).length;
 
         const active = requestsData.filter(
-          (request) => request.status === 'ACTIVE'
+          (request) => request.status === "ACTIVE",
         ).length;
 
         const completed = requestsData.filter(
-          (request) => request.status === 'COMPLETED'
+          (request) => request.status === "COMPLETED",
         ).length;
 
         setStats({
@@ -125,9 +125,9 @@ export default function TenantDashboard() {
         });
       })
       .catch((err) => {
-        let errorMessage = 'Failed to load rental requests';
+        let errorMessage = "Failed to load rental requests";
 
-        if (err && typeof err === 'object' && 'response' in err) {
+        if (err && typeof err === "object" && "response" in err) {
           const errorResponse = err as {
             response?: {
               data?: {
@@ -136,8 +136,7 @@ export default function TenantDashboard() {
             };
           };
 
-          errorMessage =
-            errorResponse.response?.data?.message || errorMessage;
+          errorMessage = errorResponse.response?.data?.message || errorMessage;
         }
 
         toast.error(errorMessage);
@@ -147,7 +146,7 @@ export default function TenantDashboard() {
       });
 
     api
-      .get('/payments')
+      .get("/payments")
       .then((response) => {
         const responseData = response.data;
 
@@ -164,10 +163,31 @@ export default function TenantDashboard() {
         setPayments(paymentsData);
       })
       .catch((err) => {
-        console.error('Failed to load payment history:', err);
+        console.error("Failed to load payment history:", err);
       })
       .finally(() => {
         setPaymentsLoading(false);
+      });
+
+    api
+      .get("/reviews/my")
+      .then((response) => {
+        const responseData = response.data;
+
+        let reviewsData: Review[] = [];
+
+        if (Array.isArray(responseData)) {
+          reviewsData = responseData;
+        } else if (Array.isArray(responseData?.data)) {
+          reviewsData = responseData.data;
+        } else if (Array.isArray(responseData?.data?.data)) {
+          reviewsData = responseData.data.data;
+        }
+
+        setReviews(reviewsData);
+      })
+      .catch((err) => {
+        console.error("Failed to load reviews:", err);
       });
   }, []);
 
@@ -175,23 +195,23 @@ export default function TenantDashboard() {
     try {
       setPayingId(requestId);
 
-      const response = await api.post('/payments/create', {
+      const response = await api.post("/payments/create", {
         rentalRequestId: requestId,
-        provider: 'STRIPE',
+        provider: "STRIPE",
       });
 
       const checkoutUrl = response.data?.data?.checkoutUrl;
 
       if (!checkoutUrl) {
-        toast.error('Checkout URL not found');
+        toast.error("Checkout URL not found");
         return;
       }
 
       window.location.assign(checkoutUrl);
     } catch (err) {
-      let errorMessage = 'Failed to start payment';
+      let errorMessage = "Failed to start payment";
 
-      if (err && typeof err === 'object' && 'response' in err) {
+      if (err && typeof err === "object" && "response" in err) {
         const errorResponse = err as {
           response?: {
             data?: {
@@ -200,8 +220,7 @@ export default function TenantDashboard() {
           };
         };
 
-        errorMessage =
-          errorResponse.response?.data?.message || errorMessage;
+        errorMessage = errorResponse.response?.data?.message || errorMessage;
       }
 
       toast.error(errorMessage);
@@ -210,38 +229,42 @@ export default function TenantDashboard() {
     }
   };
 
+  const hasReviewedProperty = (propertyId: string) => {
+    return reviews.some((review) => review.propertyId === propertyId);
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<
       string,
       {
-        variant: 'default' | 'secondary' | 'destructive' | 'outline';
+        variant: "default" | "secondary" | "destructive" | "outline";
         label: string;
       }
     > = {
       PENDING: {
-        variant: 'secondary',
-        label: 'Pending',
+        variant: "secondary",
+        label: "Pending",
       },
       APPROVED: {
-        variant: 'default',
-        label: 'Approved',
+        variant: "default",
+        label: "Approved",
       },
       REJECTED: {
-        variant: 'destructive',
-        label: 'Rejected',
+        variant: "destructive",
+        label: "Rejected",
       },
       ACTIVE: {
-        variant: 'default',
-        label: 'Active',
+        variant: "default",
+        label: "Active",
       },
       COMPLETED: {
-        variant: 'outline',
-        label: 'Completed',
+        variant: "outline",
+        label: "Completed",
       },
     };
 
     const config = variants[status] || {
-      variant: 'outline' as const,
+      variant: "outline" as const,
       label: status,
     };
 
@@ -250,19 +273,19 @@ export default function TenantDashboard() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case "PENDING":
         return <Clock className="h-4 w-4 text-yellow-500" />;
 
-      case 'APPROVED':
+      case "APPROVED":
         return <CheckCircle className="h-4 w-4 text-blue-500" />;
 
-      case 'REJECTED':
+      case "REJECTED":
         return <XCircle className="h-4 w-4 text-red-500" />;
 
-      case 'ACTIVE':
+      case "ACTIVE":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
 
-      case 'COMPLETED':
+      case "COMPLETED":
         return <CheckCircle className="h-4 w-4 text-gray-500" />;
 
       default:
@@ -271,15 +294,11 @@ export default function TenantDashboard() {
   };
 
   const getPaymentBadge = (status: string) => {
-    if (
-      status === 'PAID' ||
-      status === 'COMPLETED' ||
-      status === 'SUCCESS'
-    ) {
+    if (status === "PAID" || status === "COMPLETED" || status === "SUCCESS") {
       return <Badge>Paid</Badge>;
     }
 
-    if (status === 'FAILED') {
+    if (status === "FAILED") {
       return <Badge variant="destructive">Failed</Badge>;
     }
 
@@ -290,9 +309,7 @@ export default function TenantDashboard() {
     return (
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            Tenant Dashboard
-          </h1>
+          <h1 className="text-2xl font-bold">Tenant Dashboard</h1>
 
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
         </div>
@@ -316,16 +333,14 @@ export default function TenantDashboard() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold">
-            Tenant Dashboard
-          </h1>
+          <h1 className="text-2xl font-bold">Tenant Dashboard</h1>
 
           <p className="text-sm text-gray-500">
-            Welcome back, {user?.name || 'Tenant'}
+            Welcome back, {user?.name || "Tenant"}
           </p>
         </div>
 
-        <Button onClick={() => router.push('/properties')}>
+        <Button onClick={() => router.push("/properties")}>
           <Plus className="h-4 w-4 mr-2" />
           Browse Properties
         </Button>
@@ -340,9 +355,7 @@ export default function TenantDashboard() {
           </CardHeader>
 
           <CardContent>
-            <p className="text-2xl font-bold">
-              {stats.total}
-            </p>
+            <p className="text-2xl font-bold">{stats.total}</p>
           </CardContent>
         </Card>
 
@@ -368,9 +381,7 @@ export default function TenantDashboard() {
           </CardHeader>
 
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">
-              {stats.approved}
-            </p>
+            <p className="text-2xl font-bold text-blue-600">{stats.approved}</p>
           </CardContent>
         </Card>
 
@@ -382,9 +393,7 @@ export default function TenantDashboard() {
           </CardHeader>
 
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              {stats.active}
-            </p>
+            <p className="text-2xl font-bold text-green-600">{stats.active}</p>
           </CardContent>
         </Card>
 
@@ -416,7 +425,7 @@ export default function TenantDashboard() {
               <p>No rental requests yet</p>
 
               <Button
-                onClick={() => router.push('/properties')}
+                onClick={() => router.push("/properties")}
                 variant="outline"
                 className="mt-4"
               >
@@ -441,19 +450,19 @@ export default function TenantDashboard() {
                   {requests.map((request) => (
                     <TableRow key={request.id}>
                       <TableCell className="font-medium">
-                        {request.property?.title || 'N/A'}
+                        {request.property?.title || "N/A"}
                       </TableCell>
 
                       <TableCell>
-                        {request.property?.location || 'N/A'}
+                        {request.property?.location || "N/A"}
                       </TableCell>
 
                       <TableCell>
                         {request.property?.rentAmount
                           ? `৳${Number(
-                              request.property.rentAmount
-                            ).toLocaleString('en-BD')}`
-                          : 'N/A'}
+                              request.property.rentAmount,
+                            ).toLocaleString("en-BD")}`
+                          : "N/A"}
                       </TableCell>
 
                       <TableCell>
@@ -465,26 +474,24 @@ export default function TenantDashboard() {
 
                       <TableCell>
                         {request.createdAt
-                          ? new Date(
-                              request.createdAt
-                            ).toLocaleDateString('en-BD')
-                          : 'N/A'}
+                          ? new Date(request.createdAt).toLocaleDateString(
+                              "en-BD",
+                            )
+                          : "N/A"}
                       </TableCell>
 
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                          {request.status === 'PENDING' && (
+                          {request.status === "PENDING" && (
                             <span className="text-sm text-gray-400">
                               Waiting for approval
                             </span>
                           )}
 
-                          {request.status === 'APPROVED' && (
+                          {request.status === "APPROVED" && (
                             <Button
                               size="sm"
-                              onClick={() =>
-                                handlePayNow(request.id)
-                              }
+                              onClick={() => handlePayNow(request.id)}
                               disabled={payingId === request.id}
                             >
                               {payingId === request.id ? (
@@ -501,19 +508,34 @@ export default function TenantDashboard() {
                             </Button>
                           )}
 
-                          {request.status === 'REJECTED' && (
+                          {request.status === "REJECTED" && (
                             <span className="text-sm text-red-500">
                               Rejected
                             </span>
                           )}
 
-                          {request.status === 'ACTIVE' && (
-                            <span className="text-sm text-green-600">
-                              Active rental
-                            </span>
-                          )}
+                          {request.status === "ACTIVE" &&
+                            (hasReviewedProperty(request.propertyId) ? (
+                              <div className="flex items-center gap-2 text-sm text-green-600">
+                                <CheckCircle className="h-4 w-4" />
+                                Reviewed
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  router.push(
+                                    `/tenant/requests/${request.id}/review?propertyId=${request.propertyId}`,
+                                  )
+                                }
+                              >
+                                <Star className="h-4 w-4 mr-2" />
+                                Leave Review
+                              </Button>
+                            ))}
 
-                          {request.status === 'COMPLETED' && (
+                          {request.status === "COMPLETED" && (
                             <span className="text-sm text-gray-500">
                               Rental completed
                             </span>
@@ -542,6 +564,7 @@ export default function TenantDashboard() {
           ) : payments.length === 0 ? (
             <div className="py-8 text-center text-gray-500">
               <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+
               <p>No payment history yet</p>
             </div>
           ) : (
@@ -561,30 +584,23 @@ export default function TenantDashboard() {
                   {payments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-medium">
-                        {payment.transactionId || 'N/A'}
+                        {payment.transactionId || "N/A"}
                       </TableCell>
 
                       <TableCell>
-                        ৳
-                        {Number(payment.amount).toLocaleString(
-                          'en-BD'
-                        )}
+                        ৳{Number(payment.amount).toLocaleString("en-BD")}
                       </TableCell>
 
-                      <TableCell>
-                        {payment.provider || 'STRIPE'}
-                      </TableCell>
+                      <TableCell>{payment.provider || "STRIPE"}</TableCell>
 
-                      <TableCell>
-                        {getPaymentBadge(payment.status)}
-                      </TableCell>
+                      <TableCell>{getPaymentBadge(payment.status)}</TableCell>
 
                       <TableCell>
                         {payment.createdAt
-                          ? new Date(
-                              payment.createdAt
-                            ).toLocaleDateString('en-BD')
-                          : 'N/A'}
+                          ? new Date(payment.createdAt).toLocaleDateString(
+                              "en-BD",
+                            )
+                          : "N/A"}
                       </TableCell>
                     </TableRow>
                   ))}
