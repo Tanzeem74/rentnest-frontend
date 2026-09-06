@@ -14,7 +14,13 @@ import {
   UserRound,
 } from "lucide-react";
 
-interface PropertyItem {
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Property {
   id: string;
   landlord?: {
     id: string;
@@ -23,21 +29,15 @@ interface PropertyItem {
   };
 }
 
-interface AdminUser {
+interface MyReview {
   id: string;
-  name: string;
-  email: string;
-}
-
-interface ReviewItem {
-  id: string;
-  propertyId: string;
   property?: {
     id: string;
+    title: string;
   };
 }
 
-interface PublicReview {
+interface PropertyReview {
   id: string;
   tenant?: {
     id: string;
@@ -50,37 +50,59 @@ export default function ProfilePage() {
   const { user, isLoading } = useAuth();
 
   const [profileName, setProfileName] = useState("");
-  const [nameLoading, setNameLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    const loadName = async () => {
+    const loadProfileName = async () => {
       try {
         if (user.name && user.name !== "User") {
           setProfileName(user.name);
           return;
         }
 
+        if (user.role === "ADMIN") {
+          const res = await api.get("/admin/users");
+          const responseData = res.data?.data;
+
+          let users: AdminUser[] = [];
+
+          if (Array.isArray(responseData)) {
+            users = responseData;
+          } else if (Array.isArray(responseData?.data)) {
+            users = responseData.data;
+          }
+
+          const currentUser = users.find(
+            (item) =>
+              item.id === user.id ||
+              item.email.toLowerCase() === user.email.toLowerCase(),
+          );
+
+          if (currentUser?.name) {
+            setProfileName(currentUser.name);
+            return;
+          }
+        }
+
         if (user.role === "LANDLORD") {
-          const response = await api.get("/properties", {
+          const res = await api.get("/properties", {
             params: {
               limit: 100,
             },
           });
 
-          const responseData = response.data;
+          const responseData = res.data?.data;
 
-          let properties: PropertyItem[] = [];
+          let properties: Property[] = [];
 
           if (Array.isArray(responseData)) {
             properties = responseData;
           } else if (Array.isArray(responseData?.data)) {
             properties = responseData.data;
-          } else if (Array.isArray(responseData?.data?.data)) {
-            properties = responseData.data.data;
           }
 
           const ownProperty = properties.find(
@@ -96,91 +118,60 @@ export default function ProfilePage() {
           }
         }
 
-        if (user.role === "ADMIN") {
-          const response = await api.get("/admin/users");
-
-          const responseData = response.data;
-
-          let users: AdminUser[] = [];
-
-          if (Array.isArray(responseData)) {
-            users = responseData;
-          } else if (Array.isArray(responseData?.data)) {
-            users = responseData.data;
-          } else if (Array.isArray(responseData?.data?.data)) {
-            users = responseData.data.data;
-          }
-
-          const currentUser = users.find(
-            (item) =>
-              item.id === user.id ||
-              item.email.toLowerCase() === user.email.toLowerCase(),
-          );
-
-          if (currentUser?.name) {
-            setProfileName(currentUser.name);
-            return;
-          }
-        }
-
         if (user.role === "TENANT") {
-          const myReviewsResponse = await api.get("/reviews/my");
+          const myReviewsRes = await api.get("/reviews/my");
+          const responseData = myReviewsRes.data?.data;
 
-          const responseData = myReviewsResponse.data;
-
-          let myReviews: ReviewItem[] = [];
+          let myReviews: MyReview[] = [];
 
           if (Array.isArray(responseData)) {
             myReviews = responseData;
           } else if (Array.isArray(responseData?.data)) {
             myReviews = responseData.data;
-          } else if (Array.isArray(responseData?.data?.data)) {
-            myReviews = responseData.data.data;
           }
 
-          if (myReviews.length > 0) {
-            const propertyId =
-              myReviews[0].propertyId || myReviews[0].property?.id;
+          for (const review of myReviews) {
+            const propertyId = review.property?.id;
 
-            if (propertyId) {
-              const reviewsResponse = await api.get(
-                `/reviews/property/${propertyId}`,
-              );
+            if (!propertyId) {
+              continue;
+            }
 
-              const reviewsResponseData = reviewsResponse.data;
+            const propertyReviewsRes = await api.get(
+              `/reviews/property/${propertyId}`,
+            );
 
-              let propertyReviews: PublicReview[] = [];
+            const propertyReviewsData = propertyReviewsRes.data?.data;
 
-              if (Array.isArray(reviewsResponseData)) {
-                propertyReviews = reviewsResponseData;
-              } else if (Array.isArray(reviewsResponseData?.data)) {
-                propertyReviews = reviewsResponseData.data;
-              } else if (Array.isArray(reviewsResponseData?.data?.data)) {
-                propertyReviews = reviewsResponseData.data.data;
-              }
+            let propertyReviews: PropertyReview[] = [];
 
-              const ownReview = propertyReviews.find(
-                (review) => review.tenant?.id === user.id,
-              );
+            if (Array.isArray(propertyReviewsData)) {
+              propertyReviews = propertyReviewsData;
+            } else if (Array.isArray(propertyReviewsData?.data)) {
+              propertyReviews = propertyReviewsData.data;
+            }
 
-              if (ownReview?.tenant?.name) {
-                setProfileName(ownReview.tenant.name);
-                return;
-              }
+            const ownReview = propertyReviews.find(
+              (item) => item.tenant?.id === user.id,
+            );
+
+            if (ownReview?.tenant?.name) {
+              setProfileName(ownReview.tenant.name);
+              return;
             }
           }
         }
 
         setProfileName("User");
       } catch (error) {
-        console.error("Failed to load profile name:", error);
+        console.error("Failed to load profile:", error);
         setProfileName(user.name || "User");
       } finally {
-        setNameLoading(false);
+        setProfileLoading(false);
       }
     };
 
-    loadName();
+    loadProfileName();
   }, [user]);
 
   if (isLoading) {
@@ -197,7 +188,7 @@ export default function ProfilePage() {
 
   const dashboardPath = `/${user.role.toLowerCase()}`;
 
-  const displayName = nameLoading
+  const displayName = profileLoading
     ? "Loading..."
     : profileName || user.name || "User";
 

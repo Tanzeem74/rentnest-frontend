@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LogOut, User, LayoutDashboard } from 'lucide-react';
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOut, User, LayoutDashboard } from "lucide-react";
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -20,16 +20,15 @@ export function Navbar() {
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
+      .split(" ")
       .map((n) => n[0])
-      .join('')
+      .join("")
       .toUpperCase()
       .slice(0, 2);
   };
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
   };
 
   return (
@@ -41,7 +40,10 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <Link href="/properties" className="text-gray-600 hover:text-gray-900 hidden sm:block">
+            <Link
+              href="/properties"
+              className="text-gray-600 hover:text-gray-900 hidden sm:block"
+            >
               Properties
             </Link>
 
@@ -54,24 +56,40 @@ export function Navbar() {
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent className="w-56" align="end">
                   <div className="px-2 py-1.5 text-sm font-medium">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-gray-500">{user.email}</p>
+                      <p className="text-sm font-medium leading-none">
+                        {user.name}
+                      </p>
+
+                      <p className="text-xs leading-none text-gray-500">
+                        {user.email}
+                      </p>
                     </div>
                   </div>
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(`/${user.role.toLowerCase()}`)}>
+
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/${user.role.toLowerCase()}`)}
+                  >
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/profile')}>
+
+                  <DropdownMenuItem onClick={() => router.push("/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 cursor-pointer"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -84,6 +102,7 @@ export function Navbar() {
                     Login
                   </Button>
                 </Link>
+
                 <Link href="/register">
                   <Button size="sm">Sign Up</Button>
                 </Link>

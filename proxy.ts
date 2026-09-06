@@ -6,7 +6,6 @@ export function proxy(request: NextRequest) {
   const accessToken = request.cookies.get("accessToken")?.value;
   const userCookie = request.cookies.get("user")?.value;
 
-  const publicRoutes = ["/", "/login", "/register", "/properties"];
 
   const isPublicRoute =
     pathname === "/" ||

@@ -1,9 +1,16 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, startTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { User, AuthResponse } from '@/lib/types';
-import { getUser, setAuthData, clearAuth } from '@/lib/auth-helper';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  startTransition,
+} from "react";
+import { useRouter } from "next/navigation";
+import { User, AuthResponse } from "@/lib/types";
+import { getUser, setAuthData, clearAuth } from "@/lib/auth-helper";
 
 interface AuthContextType {
   user: User | null;
@@ -17,11 +24,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
   const router = useRouter();
 
   useEffect(() => {
     const currentUser = getUser();
-    console.log('AuthContext: User from cookie:', currentUser);
+
     startTransition(() => {
       setUser(currentUser);
       setIsLoading(false);
@@ -29,22 +37,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (data: AuthResponse) => {
-    //console.log('AuthContext: Login called with:', data.user.role);
     setAuthData(data);
     setUser(data.user);
+
     const rolePath = data.user.role.toLowerCase();
+
     router.push(`/${rolePath}`);
   };
 
   const logout = () => {
-    console.log('AuthContext: Logout called');
     clearAuth();
     setUser(null);
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -52,8 +67,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 };
