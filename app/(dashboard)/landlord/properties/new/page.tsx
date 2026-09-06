@@ -1,30 +1,95 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+
 import api from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const propertySchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
-  location: z.string().min(2, 'Location is required'),
-  rentAmount: z.string().min(1, 'Rent amount is required'),
-  bedrooms: z.string().min(1, 'Number of bedrooms is required'),
-  bathrooms: z.string().min(1, 'Number of bathrooms is required'),
-  propertyType: z.string().min(1, 'Property type is required'),
-  categoryId: z.string().min(1, 'Category is required'),
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Title must be at least 3 characters'),
+
+  description: z
+    .string()
+    .trim()
+    .min(10, 'Description must be at least 10 characters'),
+
+  location: z
+    .string()
+    .trim()
+    .min(2, 'Location is required'),
+
+  rentAmount: z
+    .string()
+    .min(1, 'Rent amount is required')
+    .refine(
+      (value) => Number(value) > 0,
+      'Rent amount must be greater than 0'
+    ),
+
+  bedrooms: z
+    .string()
+    .min(1, 'Number of bedrooms is required')
+    .refine(
+      (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
+      'Bedrooms must be a valid number'
+    ),
+
+  bathrooms: z
+    .string()
+    .min(1, 'Number of bathrooms is required')
+    .refine(
+      (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
+      'Bathrooms must be a valid number'
+    ),
+
+  propertyType: z.enum([
+    'APARTMENT',
+    'HOUSE',
+    'STUDIO',
+    'VILLA',
+    'OFFICE',
+  ]),
+
+  categoryId: z
+    .string()
+    .min(1, 'Category is required'),
+
+  status: z.enum(['AVAILABLE', 'RENTED']),
+
   images: z.string().optional(),
+
   amenities: z.string().optional(),
 });
 
@@ -35,14 +100,48 @@ type Category = {
   name: string;
 };
 
+function getErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'response' in error
+  ) {
+    const apiError = error as {
+      response?: {
+        data?: {
+          message?: string;
+          error?: string;
+        };
+      };
+    };
+
+    return (
+      apiError.response?.data?.message ||
+      apiError.response?.data?.error ||
+      'Failed to create property'
+    );
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Failed to create property';
+}
+
 export default function CreatePropertyPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingCategories, setLoadingCategories] =
+    useState(true);
+  const [categories, setCategories] = useState<Category[]>(
+    []
+  );
 
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
+
     defaultValues: {
       title: '',
       description: '',
@@ -50,59 +149,92 @@ export default function CreatePropertyPage() {
       rentAmount: '',
       bedrooms: '',
       bathrooms: '',
-      propertyType: '',
+      propertyType: 'APARTMENT',
       categoryId: '',
+      status: 'AVAILABLE',
       images: '',
       amenities: '',
     },
   });
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await api.get('/categories');
-        setCategories(res.data?.data || []);
-      } catch (error) {
-        toast.error('Failed to load categories');
-      } finally {
+    let cancelled = false;
+
+    api
+      .get('/categories')
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        const responseData = response.data;
+
+        let categoryData: Category[] = [];
+
+        if (Array.isArray(responseData)) {
+          categoryData = responseData;
+        } else if (Array.isArray(responseData?.data)) {
+          categoryData = responseData.data;
+        } else if (Array.isArray(responseData?.data?.data)) {
+          categoryData = responseData.data.data;
+        }
+
+        setCategories(categoryData);
         setLoadingCategories(false);
-      }
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setLoadingCategories(false);
+        toast.error('Failed to load categories');
+      });
+
+    return () => {
+      cancelled = true;
     };
-    fetchCategories();
   }, []);
 
   const onSubmit = async (data: PropertyFormValues) => {
-    setLoading(true);
     try {
+      setLoading(true);
+
+      const images = data.images
+        ? data.images
+            .split(',')
+            .map((image) => image.trim())
+            .filter(Boolean)
+        : [];
+
+      const amenities = data.amenities
+        ? data.amenities
+            .split(',')
+            .map((amenity) => amenity.trim())
+            .filter(Boolean)
+        : [];
+
       const payload = {
-        title: data.title,
-        description: data.description,
-        location: data.location,
+        title: data.title.trim(),
+        description: data.description.trim(),
+        location: data.location.trim(),
         rentAmount: Number(data.rentAmount),
         bedrooms: Number(data.bedrooms),
         bathrooms: Number(data.bathrooms),
         propertyType: data.propertyType,
         categoryId: data.categoryId,
-        images: data.images ? data.images.split(',').map(s => s.trim()).filter(s => s) : [],
-        amenities: data.amenities ? data.amenities.split(',').map(s => s.trim()).filter(s => s) : [],
+        status: data.status,
+        images,
+        amenities,
       };
 
-      console.log('📤 Payload:', JSON.stringify(payload, null, 2));
+      await api.post('/landlord/properties', payload);
 
-      const res = await api.post('/landlord/properties', payload);
-      console.log('✅ Response:', res.data);
+      toast.success('Property created successfully');
 
-      toast.success('Property created successfully!');
       router.push('/landlord');
-    } catch (err) {
-      console.error('❌ Error:', err);
-      let errorMessage = 'Failed to create property';
-      if (err && typeof err === 'object' && 'response' in err) {
-        const errorResponse = err as { response: { data: { message: string } } };
-        errorMessage = errorResponse.response?.data?.message || errorMessage;
-        console.error('Server error:', errorResponse.response?.data);
-      }
-      toast.error(errorMessage);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -110,35 +242,51 @@ export default function CreatePropertyPage() {
 
   if (loadingCategories) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-        <ArrowLeft className="h-4 w-4 mr-2" />
+    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+      <Button
+        type="button"
+        variant="ghost"
+        className="mb-4"
+        onClick={() => router.push('/landlord')}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
         Back
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Add New Property</CardTitle>
+          <CardTitle className="text-2xl">
+            Add New Property
+          </CardTitle>
         </CardHeader>
+
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-5"
+            >
               <FormField
                 control={form.control}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title</FormLabel>
+                    <FormLabel>Property Title</FormLabel>
+
                     <FormControl>
-                      <Input placeholder="Luxury Apartment" {...field} />
+                      <Input
+                        placeholder="Luxury Apartment"
+                        {...field}
+                      />
                     </FormControl>
+
                     <FormMessage />
                   </FormItem>
                 )}
@@ -150,24 +298,35 @@ export default function CreatePropertyPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
+
                     <FormControl>
-                      <Textarea placeholder="Describe your property..." rows={4} {...field} />
+                      <Textarea
+                        placeholder="Describe your property..."
+                        rows={5}
+                        {...field}
+                      />
                     </FormControl>
+
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="location"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Location</FormLabel>
+
                       <FormControl>
-                        <Input placeholder="Dhaka, Bangladesh" {...field} />
+                        <Input
+                          placeholder="Sylhet, Bangladesh"
+                          {...field}
+                        />
                       </FormControl>
+
                       <FormMessage />
                     </FormItem>
                   )}
@@ -178,26 +337,43 @@ export default function CreatePropertyPage() {
                   name="rentAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Rent Amount (BDT)</FormLabel>
+                      <FormLabel>
+                        Monthly Rent (BDT)
+                      </FormLabel>
+
                       <FormControl>
-                        <Input type="number" placeholder="15000" {...field} />
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="15000"
+                          {...field}
+                        />
                       </FormControl>
+
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="bedrooms"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Bedrooms</FormLabel>
+
                       <FormControl>
-                        <Input type="number" placeholder="3" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="3"
+                          {...field}
+                        />
                       </FormControl>
+
                       <FormMessage />
                     </FormItem>
                   )}
@@ -209,35 +385,64 @@ export default function CreatePropertyPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Bathrooms</FormLabel>
+
                       <FormControl>
-                        <Input type="number" placeholder="2" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="2"
+                          {...field}
+                        />
                       </FormControl>
+
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="propertyType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Property Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select property type" />
                           </SelectTrigger>
                         </FormControl>
+
                         <SelectContent>
-                          <SelectItem value="APARTMENT">Apartment</SelectItem>
-                          <SelectItem value="HOUSE">House</SelectItem>
-                          <SelectItem value="ROOM">Room</SelectItem>
-                          <SelectItem value="COMMERCIAL">Commercial</SelectItem>
+                          <SelectItem value="APARTMENT">
+                            Apartment
+                          </SelectItem>
+
+                          <SelectItem value="HOUSE">
+                            House
+                          </SelectItem>
+
+                          <SelectItem value="STUDIO">
+                            Studio
+                          </SelectItem>
+
+                          <SelectItem value="VILLA">
+                            Villa
+                          </SelectItem>
+
+                          <SelectItem value="OFFICE">
+                            Office
+                          </SelectItem>
                         </SelectContent>
                       </Select>
+
                       <FormMessage />
                     </FormItem>
                   )}
@@ -249,20 +454,29 @@ export default function CreatePropertyPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
+
                         <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name}
+                          {categories.map((category) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.id}
+                            >
+                              {category.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+
                       <FormMessage />
                     </FormItem>
                   )}
@@ -271,13 +485,58 @@ export default function CreatePropertyPage() {
 
               <FormField
                 control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Availability Status
+                    </FormLabel>
+
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+
+                      <SelectContent>
+                        <SelectItem value="AVAILABLE">
+                          Available
+                        </SelectItem>
+
+                        <SelectItem value="RENTED">
+                          Rented
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="images"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URLs (comma separated)</FormLabel>
+                    <FormLabel>Image URLs</FormLabel>
+
                     <FormControl>
-                      <Input placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg" {...field} />
+                      <Textarea
+                        placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                        rows={3}
+                        {...field}
+                      />
                     </FormControl>
+
+                    <p className="text-xs text-muted-foreground">
+                      Separate multiple image URLs with commas.
+                    </p>
+
                     <FormMessage />
                   </FormItem>
                 )}
@@ -288,19 +547,58 @@ export default function CreatePropertyPage() {
                 name="amenities"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amenities (comma separated)</FormLabel>
+                    <FormLabel>Amenities</FormLabel>
+
                     <FormControl>
-                      <Input placeholder="WiFi, Parking, Lift" {...field} />
+                      <Input
+                        placeholder="WiFi, Parking, Lift, Security"
+                        {...field}
+                      />
                     </FormControl>
+
+                    <p className="text-xs text-muted-foreground">
+                      Separate amenities with commas.
+                    </p>
+
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {loading ? 'Creating...' : 'Create Property'}
-              </Button>
+              {categories.length === 0 && (
+                <p className="text-sm text-destructive">
+                  No categories are available. A category
+                  must exist before creating a property.
+                </p>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() =>
+                    router.push('/landlord')
+                  }
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={
+                    loading || categories.length === 0
+                  }
+                >
+                  {loading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+
+                  {loading
+                    ? 'Creating...'
+                    : 'Create Property'}
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>
