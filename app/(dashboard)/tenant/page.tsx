@@ -54,12 +54,24 @@ type RentalRequest = {
   updatedAt: string;
 };
 
+type Payment = {
+  id: string;
+  amount: number | string;
+  status: string;
+  provider?: string;
+  transactionId?: string;
+  rentalRequestId?: string;
+  createdAt: string;
+};
+
 export default function TenantDashboard() {
   const { user } = useAuth();
   const router = useRouter();
 
   const [requests, setRequests] = useState<RentalRequest[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const [stats, setStats] = useState({
@@ -133,46 +145,70 @@ export default function TenantDashboard() {
       .finally(() => {
         setLoading(false);
       });
+
+    api
+      .get('/payments')
+      .then((response) => {
+        const responseData = response.data;
+
+        let paymentsData: Payment[] = [];
+
+        if (Array.isArray(responseData)) {
+          paymentsData = responseData;
+        } else if (Array.isArray(responseData?.data)) {
+          paymentsData = responseData.data;
+        } else if (Array.isArray(responseData?.data?.data)) {
+          paymentsData = responseData.data.data;
+        }
+
+        setPayments(paymentsData);
+      })
+      .catch((err) => {
+        console.error('Failed to load payment history:', err);
+      })
+      .finally(() => {
+        setPaymentsLoading(false);
+      });
   }, []);
 
   const handlePayNow = async (requestId: string) => {
-  try {
-    setPayingId(requestId);
+    try {
+      setPayingId(requestId);
 
-    const response = await api.post('/payments/create', {
-      rentalRequestId: requestId,
-      provider: 'STRIPE',
-    });
+      const response = await api.post('/payments/create', {
+        rentalRequestId: requestId,
+        provider: 'STRIPE',
+      });
 
-    const checkoutUrl = response.data?.data?.checkoutUrl;
+      const checkoutUrl = response.data?.data?.checkoutUrl;
 
-    if (!checkoutUrl) {
-      toast.error('Checkout URL not found');
-      return;
-    }
+      if (!checkoutUrl) {
+        toast.error('Checkout URL not found');
+        return;
+      }
 
-    window.location.assign(checkoutUrl);
-  } catch (err) {
-    let errorMessage = 'Failed to start payment';
+      window.location.assign(checkoutUrl);
+    } catch (err) {
+      let errorMessage = 'Failed to start payment';
 
-    if (err && typeof err === 'object' && 'response' in err) {
-      const errorResponse = err as {
-        response?: {
-          data?: {
-            message?: string;
+      if (err && typeof err === 'object' && 'response' in err) {
+        const errorResponse = err as {
+          response?: {
+            data?: {
+              message?: string;
+            };
           };
         };
-      };
 
-      errorMessage =
-        errorResponse.response?.data?.message || errorMessage;
+        errorMessage =
+          errorResponse.response?.data?.message || errorMessage;
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setPayingId(null);
     }
-
-    toast.error(errorMessage);
-  } finally {
-    setPayingId(null);
-  }
-};
+  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<
@@ -204,7 +240,10 @@ export default function TenantDashboard() {
       },
     };
 
-    const config = variants[status] || variants.PENDING;
+    const config = variants[status] || {
+      variant: 'outline' as const,
+      label: status,
+    };
 
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
@@ -229,6 +268,22 @@ export default function TenantDashboard() {
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  const getPaymentBadge = (status: string) => {
+    if (
+      status === 'PAID' ||
+      status === 'COMPLETED' ||
+      status === 'SUCCESS'
+    ) {
+      return <Badge>Paid</Badge>;
+    }
+
+    if (status === 'FAILED') {
+      return <Badge variant="destructive">Failed</Badge>;
+    }
+
+    return <Badge variant="secondary">{status}</Badge>;
   };
 
   if (loading) {
@@ -464,6 +519,72 @@ export default function TenantDashboard() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment History</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          {paymentsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">
+              <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>No payment history yet</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">
+                        {payment.transactionId || 'N/A'}
+                      </TableCell>
+
+                      <TableCell>
+                        ৳
+                        {Number(payment.amount).toLocaleString(
+                          'en-BD'
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {payment.provider || 'STRIPE'}
+                      </TableCell>
+
+                      <TableCell>
+                        {getPaymentBadge(payment.status)}
+                      </TableCell>
+
+                      <TableCell>
+                        {payment.createdAt
+                          ? new Date(
+                              payment.createdAt
+                            ).toLocaleDateString('en-BD')
+                          : 'N/A'}
                       </TableCell>
                     </TableRow>
                   ))}
