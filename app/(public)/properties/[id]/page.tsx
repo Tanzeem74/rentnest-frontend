@@ -11,6 +11,7 @@ import {
   Star,
   User,
 } from "lucide-react";
+import { RequestToRentButton } from "@/components/properties/RequestToRentButton";
 
 interface Property {
   id: string;
@@ -395,18 +396,10 @@ export default async function PropertyDetailsPage({
               </div>
             </div>
 
-            {property.status === "AVAILABLE" ? (
-              <Link
-                href={`/properties/${property.id}/request`}
-                className="mt-6 block rounded-lg bg-primary px-5 py-3 text-center font-medium text-primary-foreground transition hover:opacity-90"
-              >
-                Request to Rent
-              </Link>
-            ) : (
-              <div className="mt-6 rounded-lg bg-muted px-5 py-3 text-center text-sm font-medium">
-                This property is currently {property.status.toLowerCase()}.
-              </div>
-            )}
+            <RequestToRentButton
+              propertyId={property.id}
+              status={property.status}
+            />
           </aside>
         </div>
       </div>
