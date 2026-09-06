@@ -1,36 +1,262 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RentNest Frontend
+
+RentNest is a modern rental property marketplace connecting tenants and
+landlords. This repository contains the frontend application built with
+Next.js and TypeScript.
+
+## Live Website
+
+**Frontend:** https://rentnest-frontend-sigma.vercel.app
+
+**Backend API:** https://rent-nest-backend-beryl.vercel.app/api
+
+## Features
+
+### Public
+
+-   Browse available rental properties
+-   View property details
+-   Search by title or location
+-   Filter properties
+-   View amenities and landlord information
+-   View tenant reviews and ratings
+-   Property pagination
+-   Responsive interface
+
+### Tenant
+
+-   Registration and login
+-   Request to rent properties
+-   Select preferred move-in date
+-   Track rental request status
+-   Stripe rental payments
+-   Payment and rental history
+-   Submit and view reviews
+-   Tenant dashboard
+
+### Landlord
+
+-   Registration and login
+-   Landlord dashboard
+-   Add, edit, and delete properties
+-   View tenant rental requests
+-   Approve or reject rental requests
+-   Manage property listings
+
+### Admin
+
+-   Admin dashboard
+-   View platform statistics
+-   Manage users
+-   Block and unblock users
+-   View properties and rentals
+-   Monitor rental activity and revenue
+
+## Role-Based Access Control
+
+  Role       Access
+  ---------- ----------------------------------------------------
+  Tenant     Rental requests, payments, rental history, reviews
+  Landlord   Property and rental request management
+  Admin      Platform, user, property, and rental management
+
+Protected routes are controlled according to the authenticated user's
+role.
+
+## Tech Stack
+
+-   Next.js
+-   React
+-   TypeScript
+-   Tailwind CSS
+-   Axios
+-   Lucide React
+-   React Hot Toast
+-   js-cookie
+-   Stripe Checkout
+-   Vercel
+
+## Authentication
+
+The frontend uses JWT-based authentication. Authentication data is
+stored in cookies and Axios interceptors attach the access token to
+protected API requests.
+
+Role-based dashboard routes:
+
+``` text
+/tenant
+/landlord
+/admin
+```
+
+## Property Types
+
+``` text
+APARTMENT
+HOUSE
+STUDIO
+VILLA
+OFFICE
+```
+
+## Rental Workflow
+
+``` text
+Tenant
+  ↓
+Browse Properties
+  ↓
+View Property Details
+  ↓
+Request to Rent
+  ↓
+Select Move-in Date
+  ↓
+Landlord Approves / Rejects
+  ↓
+Tenant Makes Payment
+  ↓
+Rental Becomes Active
+  ↓
+Tenant Can Submit Review
+```
+
+Rental statuses:
+
+``` text
+PENDING
+APPROVED
+REJECTED
+ACTIVE
+COMPLETED
+```
+
+## Payment Integration
+
+RentNest uses Stripe Checkout for rental payments.
+
+Payment statuses:
+
+``` text
+PENDING
+COMPLETED
+FAILED
+REFUNDED
+```
+
+## Project Structure
+
+``` text
+rentnest-frontend/
+├── app/
+│   ├── (auth)/
+│   ├── (dashboard)/
+│   ├── (public)/
+│   ├── payment/
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+├── context/
+├── hooks/
+├── lib/
+├── providers/
+├── public/
+├── proxy.ts
+├── package.json
+└── README.md
+```
+
+## Environment Variables
+
+Create `.env.local` in the project root:
+
+``` env
+NEXT_PUBLIC_API_URL=https://rent-nest-backend-beryl.vercel.app/api
+```
 
 ## Getting Started
 
-First, run the development server:
-
-```bash
+``` bash
+git clone <frontend-repository-url>
+cd rentnest-frontend
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+``` bash
+npm run lint
+npm run build
+npm start
+```
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+The frontend is deployed on Vercel.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Production URL:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+``` text
+https://rentnest-frontend-sigma.vercel.app
+```
 
-## Deploy on Vercel
+Configure this environment variable in Vercel:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+``` env
+NEXT_PUBLIC_API_URL=https://rent-nest-backend-beryl.vercel.app/api
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Backend Repository
+
+https://github.com/Tanzeem74/RentNest-Backend
+
+## API Integration
+
+``` text
+POST   /auth/register
+POST   /auth/login
+POST   /auth/refresh-token
+
+GET    /properties
+GET    /properties/:id
+
+POST   /rentals
+GET    /rentals
+GET    /rentals/:id
+
+POST   /payments/create
+POST   /payments/confirm
+GET    /payments
+
+POST   /reviews
+GET    /reviews/my
+GET    /reviews/property/:propertyId
+
+POST   /landlord/properties
+PATCH  /landlord/properties/:id
+DELETE /landlord/properties/:id
+GET    /landlord/requests
+PATCH  /landlord/requests/:id
+
+GET    /admin/users
+PATCH  /admin/users/:id
+GET    /admin/properties
+GET    /admin/rentals
+GET    /admin/dashboard
+```
+
+## Author
+
+**Shah Tanzeem Afsar**
+
+Computer Science & Engineering
+
+GitHub: https://github.com/Tanzeem74
+
+## License
+
+This project was developed for educational and academic purposes.
