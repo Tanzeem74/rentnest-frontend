@@ -60,6 +60,12 @@ type Review = {
   propertyId: string;
   rating: number;
   comment?: string;
+  createdAt?: string;
+  property?: {
+    id: string;
+    title: string;
+    location?: string;
+  };
 };
 
 export default function TenantDashboard() {
@@ -598,6 +604,75 @@ export default function TenantDashboard() {
                       <TableCell>
                         {payment.createdAt
                           ? new Date(payment.createdAt).toLocaleDateString(
+                              "en-BD",
+                            )
+                          : "N/A"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>My Reviews</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          {reviews.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">
+              <Star className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>No reviews yet</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Comment</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {reviews.map((review) => (
+                    <TableRow key={review.id}>
+                      <TableCell className="font-medium">
+                        {review.property?.title || "Property"}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <Star
+                              key={value}
+                              className={`h-4 w-4 ${
+                                value <= review.rating
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          ))}
+
+                          <span className="ml-2 text-sm text-gray-500">
+                            {review.rating}/5
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="max-w-md">
+                        {review.comment || "No comment"}
+                      </TableCell>
+
+                      <TableCell>
+                        {review.createdAt
+                          ? new Date(review.createdAt).toLocaleDateString(
                               "en-BD",
                             )
                           : "N/A"}
