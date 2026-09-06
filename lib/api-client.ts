@@ -26,7 +26,7 @@ api.interceptors.response.use(
             if (typeof window !== 'undefined') {
                 clearAuth();
                 // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = '/auth/login';
+                window.location.href = '/login';
             }
         }
         return Promise.reject(error);
