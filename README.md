@@ -8,7 +8,7 @@ Next.js and TypeScript.
 
 **Frontend:** https://rentnest-frontend-sigma.vercel.app
 
-**Backend API:** https://rent-nest-backend-beryl.vercel.app/api
+**Backend API:** https://rent-nest-backend-beryl.vercel.app
 
 ## Features
 
